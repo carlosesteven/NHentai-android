@@ -21,24 +21,22 @@ import moe.feng.nhentai.util.ExecutorManager;
 
 import static moe.feng.nhentai.cache.common.Constants.CACHE_PAGE_IMG;
 
-public class BookDownloader {
+public class PageDownloaderNew {
 
 	public static final int STATE_START = 100, STATE_PAUSE = 101, STATE_STOP = 102, STATE_ALL_OK = 103;
-	public static final String TAG = BookDownloader.class.getSimpleName();
-	boolean isRunning = true;
+	public static final String TAG = PageDownloaderNew.class.getSimpleName();
+	public boolean isRunning = true;
 	private Context context;
 	private Book book;
 	private int currentPosition, downloadingPosition = -1;
 	private OnDownloadListener listener;
 	private DownloadThread mDownloadThread;
-	private FileCacheManager mFCM;
 	private int state;
 	private boolean[] isDownloaded;
 
-	public BookDownloader(Context context, Book book) {
+	public PageDownloaderNew(Context context, Book book) {
 		this.context = context;
 		this.book = book;
-		this.mFCM = FileCacheManager.getInstance(context);
 	}
 
 	public int getCurrentPosition() {
@@ -47,6 +45,24 @@ public class BookDownloader {
 
 	public void setCurrentPosition(int currentPosition) {
 		this.currentPosition = currentPosition;
+	}
+
+	private int nextToDownloadPosition() {
+		int pos = findFirstUndownloadedPosition(getCurrentPosition());
+		if (pos == book.pageCount - 1) {
+			pos = findFirstUndownloadedPosition(0);
+		}
+		return pos;
+	}
+
+	private int findFirstUndownloadedPosition(int start) {
+		for (int i = start; i < book.pageCount; i++) {
+			if (!isDownloaded[i]) {
+				Log.i(TAG, i + " is undownloaded.");
+				return i;
+			}
+		}
+		return book.pageCount - 1;
 	}
 
 	public void start() {
@@ -140,13 +156,18 @@ public class BookDownloader {
 
 	private void next() {
 		if (isRunning && !isAllDownloaded()) {
-			downloadingPosition++;
+			downloadingPosition = nextToDownloadPosition();
 			Log.i(TAG, "downloadingPosition:" + downloadingPosition);
 			if (state == STATE_PAUSE) {
 				Log.i(TAG, "download paused");
 				if (listener != null) listener.onStateChange(STATE_PAUSE, getDownloadedCount());
-				isRunning = false;
-				return;
+				while (state == STATE_PAUSE) {
+					try {
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
 			}
 			if (state == STATE_STOP) {
 				Log.i(TAG, "download stopped");
@@ -154,15 +175,7 @@ public class BookDownloader {
 				isRunning = false;
 				return;
 			}
-			FileCacheManager m = FileCacheManager.getInstance(context);
-			String url = NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(downloadingPosition + 1));
-			if (!m.externalPageExists(book, downloadingPosition + 1) && !m.cacheExistsUrl(CACHE_PAGE_IMG, url)) {
-				setDownload(CACHE_PAGE_IMG, url);
-			} else {
-				Log.i(TAG, "download cached");
-				if (listener != null) listener.onFinish(currentPosition, getDownloadedCount());
-				next();
-			}
+			setDownload(CACHE_PAGE_IMG, NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(downloadingPosition + 1)));
 		} else {
 			Log.i(TAG, "all downloaded");
 			if (listener != null) listener.onStateChange(STATE_ALL_OK, getDownloadedCount());
@@ -203,22 +216,11 @@ public class BookDownloader {
 			@Override
 			public void onSuccess(int statusCode, Header[] headers, File file) {
 				FileCacheManager cacheManager = FileCacheManager.getInstance(context);
-				File parent = new File(cacheManager.getCachePath(type, cacheManager.getCacheName(url))).getParentFile();
-				if (!parent.exists()) parent.mkdirs();
 				if (cacheManager.move(file, new File(cacheManager.getCachePath(type, cacheManager.getCacheName(url))))) {
 					Log.i(TAG, "download finish");
 					isDownloaded[downloadingPosition] = true;
 					if (listener != null) listener.onFinish(currentPosition, getDownloadedCount());
-					if (state == STATE_START) {
-						next();
-					}
-				} else {
-					Log.i(TAG, "download error move");
-					isDownloaded[downloadingPosition] = false;
-					if (listener != null) listener.onFinish(currentPosition, getDownloadedCount());
-					if (state == STATE_START) {
-						next();
-					}
+					next();
 				}
 			}
 		});

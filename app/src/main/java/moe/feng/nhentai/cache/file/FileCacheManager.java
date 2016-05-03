@@ -7,6 +7,8 @@ import android.os.Environment;
 import android.util.Log;
 
 import com.google.gson.Gson;
+import com.loopj.android.http.FileAsyncHttpResponseHandler;
+import com.loopj.android.http.SyncHttpClient;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -21,6 +23,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 
+import cz.msebera.android.httpclient.Header;
 import moe.feng.nhentai.api.common.NHentaiUrl;
 import moe.feng.nhentai.cache.common.Constants;
 import moe.feng.nhentai.model.Book;
@@ -34,6 +37,10 @@ public class FileCacheManager {
 	private static FileCacheManager sInstance;
 	
 	private File mCacheDir, mExternalDir;
+
+	private URL ufile;
+
+	private boolean state = true;
 
 	private FileCacheManager(Context context) {
 		try {
@@ -60,7 +67,6 @@ public class FileCacheManager {
 	}
 	
 	public boolean createCacheFromNetwork(String type, String url) {
-
 		if (DEBUG) {
 			Log.d(TAG, "requesting cache from " + url);
 		}
@@ -109,6 +115,45 @@ public class FileCacheManager {
 		} catch (IOException e) {
 			return false;
 		}
+	}
+
+	public boolean createCacheFromNetworkFast(final String type, final String url, final Context context) {
+		state = true;
+
+		if (DEBUG) {
+			Log.d(TAG, "requesting cache from " + url);
+		}
+
+		try {
+			ufile = new URL(url);
+		} catch (MalformedURLException e) {
+			return false;
+		}
+		SyncHttpClient client = new SyncHttpClient();
+		client.setConnectTimeout(5000);
+		client.setLoggingEnabled(false);
+		client.get(ufile.toString(), null, new FileAsyncHttpResponseHandler(context) {
+			@Override
+			public void onFailure(int statusCode, Header[] headers, Throwable throwable, File file) {
+				if (statusCode != 200) {
+					if (url.contains("jpg")) {
+						try {
+							ufile = new URL(url.replace("jpg", "png"));
+						} catch (MalformedURLException ex) {
+							state = false;
+						}
+						createCacheFromNetworkFast(type, ufile.toString(), context);
+					}
+				}
+			}
+
+			@Override
+			public void onSuccess(int statusCode, Header[] headers, File file) {
+				move(file, new File(getCachePath(type, getCacheName(url))));
+				state = true;
+			}
+		});
+		return state;
 	}
 	
 	public boolean createCacheFromStrem(String type, String name, InputStream stream) {
@@ -172,6 +217,27 @@ public class FileCacheManager {
 			out.close();
 
 			return true;
+		} catch (Exception e) {
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	public boolean move(File src, File dst) {
+		try {
+			InputStream in = new FileInputStream(src);
+			OutputStream out = new FileOutputStream(dst);
+
+			// Transfer bytes from in to out
+			byte[] buf = new byte[1024];
+			int len;
+			while ((len = in.read(buf)) > 0) {
+				out.write(buf, 0, len);
+			}
+			in.close();
+			out.close();
+
+			return src.delete();
 		} catch (Exception e) {
 			e.printStackTrace();
 			return false;
@@ -353,7 +419,7 @@ public class FileCacheManager {
 		}
 	}
 
-	private String getCacheName(String url) {
+	public String getCacheName(String url) {
 		return url.replaceAll("/", ".").replaceAll(":", "");
 	}
 	

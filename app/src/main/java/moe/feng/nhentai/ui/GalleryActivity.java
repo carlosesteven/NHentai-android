@@ -1,6 +1,7 @@
 package moe.feng.nhentai.ui;
 
 import android.app.Activity;
+import android.app.Fragment;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
@@ -12,7 +13,6 @@ import android.support.v7.widget.AppCompatSeekBar;
 import android.support.v7.widget.AppCompatTextView;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.SeekBar;
@@ -26,24 +26,29 @@ import moe.feng.nhentai.ui.adapter.GalleryPagerAdapter;
 import moe.feng.nhentai.ui.common.AbsActivity;
 import moe.feng.nhentai.util.FullScreenHelper;
 import moe.feng.nhentai.util.Utility;
-import moe.feng.nhentai.util.task.PageDownloader;
+import moe.feng.nhentai.util.task.PageDownloaderNew;
 
 public class GalleryActivity extends AbsActivity {
 
+	private static final String EXTRA_BOOK_DATA = "book_data", EXTRA_FISRT_PAGE = "first_page";
 	private Book book;
 	private int page_num;
-
 	private ViewPager mPager;
 	private GalleryPagerAdapter mPagerAdpater;
 	private View mAppBar, mBottomBar;
 	private AppCompatSeekBar mSeekBar;
 	private AppCompatTextView mTotalPagesText;
-
 	private FullScreenHelper mFullScreenHelper;
+	private PageDownloaderNew mDownloader;
+	private Fragment old;
 
-	private PageDownloader mDownloader;
-
-	private static final String EXTRA_BOOK_DATA = "book_data", EXTRA_FISRT_PAGE = "first_page";
+	public static void launch(Activity activity, Book book, int firstPageNum) {
+		Intent intent = new Intent(activity, GalleryActivity.class);
+		intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+		intent.putExtra(EXTRA_BOOK_DATA, book.toJSONString());
+		intent.putExtra(EXTRA_FISRT_PAGE, firstPageNum);
+		activity.startActivity(intent);
+	}
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +74,7 @@ public class GalleryActivity extends AbsActivity {
 		Intent intent = getIntent();
 		book = new Gson().fromJson(intent.getStringExtra(EXTRA_BOOK_DATA), Book.class);
 		page_num = intent.getIntExtra(EXTRA_FISRT_PAGE, 0);
-		mDownloader = new PageDownloader(getApplicationContext(), book);
+		mDownloader = new PageDownloaderNew(getApplicationContext(), book);
 		mDownloader.setCurrentPosition(page_num);
 		mDownloader.setOnDownloadListener(new GalleryDownloaderListener());
 
@@ -146,6 +151,11 @@ public class GalleryActivity extends AbsActivity {
 
 			@Override
 			public void onPageSelected(int position) {
+				if (old != null) {
+					old.onPause();
+				}
+				old = mPagerAdpater.getItem(position);
+				mPagerAdpater.getItem(position).onResume();
 				mSeekBar.setProgress(position);
 				mDownloader.setCurrentPosition(position);
 			}
@@ -182,15 +192,6 @@ public class GalleryActivity extends AbsActivity {
 		});
 	}
 
-
-	public static void launch(Activity activity, Book book, int firstPageNum) {
-		Intent intent = new Intent(activity, GalleryActivity.class);
-		intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-		intent.putExtra(EXTRA_BOOK_DATA, book.toJSONString());
-		intent.putExtra(EXTRA_FISRT_PAGE, firstPageNum);
-		activity.startActivity(intent);
-	}
-
 	public void toggleControlBar() {
 		if (mAppBar.getAlpha() != 0f) {
 			ViewCompat.animate(mAppBar).alpha(0f).start();
@@ -212,11 +213,11 @@ public class GalleryActivity extends AbsActivity {
 		}
 	}
 
-	public PageDownloader getPageDownloader() {
+	public PageDownloaderNew getPageDownloader() {
 		return mDownloader;
 	}
 
-	private class GalleryDownloaderListener implements PageDownloader.OnDownloadListener {
+	private class GalleryDownloaderListener implements PageDownloaderNew.OnDownloadListener {
 
 		@Override
 		public void onFinish(int position, int progress) {

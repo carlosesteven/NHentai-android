@@ -22,7 +22,6 @@ import moe.feng.nhentai.ui.GalleryActivity;
 import moe.feng.nhentai.ui.common.LazyFragment;
 import moe.feng.nhentai.util.AsyncTask;
 import moe.feng.nhentai.util.PicassoCache;
-import moe.feng.nhentai.util.task.PageDownloader;
 import moe.feng.nhentai.view.WheelProgressView;
 import uk.co.senab.photoview.PhotoViewAttacher;
 
@@ -115,12 +114,6 @@ public class BookPageFragment extends LazyFragment {
 	}
 
 	@Override
-	public void onDestroyView() {
-		super.onDestroyView();
-		mPhotoViewAttacher.cleanup();
-	}
-
-	@Override
 	public void onResume() {
 		super.onResume();
 
@@ -145,14 +138,12 @@ public class BookPageFragment extends LazyFragment {
 	public void onPause() {
 		super.onPause();
 		mImageView.setImageBitmap(null);
-		if (mBitmap != null) {
-			mBitmap.recycle();
-		} else {
-			try {
-				((BitmapDrawable) mImageView.getDrawable()).getBitmap().recycle();
-			} catch (Exception e) {
-			}
+		try {
+			((BitmapDrawable) mImageView.getDrawable()).getBitmap().recycle();
+		} catch (Exception e) {
+
 		}
+		System.gc();
 	}
 
 	private class DownloadTask extends AsyncTask<Void, Void, Bitmap> {
@@ -194,7 +185,7 @@ public class BookPageFragment extends LazyFragment {
 							PicassoCache.getPicassoInstance(getApplicationContext()).load(FileCacheManager.getInstance(getApplicationContext()).getCachedImage(CACHE_PAGE_IMG, url)).into(mImageView, onimageload);
 						}
 					} else {
-						if (getActivity() != null && getActivity() instanceof GalleryActivity) {
+						/*if (getActivity() != null && getActivity() instanceof GalleryActivity) {
 							PageDownloader downloader = ((GalleryActivity) getActivity()).getPageDownloader();
 							if (downloader != null) {
 								downloader.setDownloaded(pageNum - 1, false);
@@ -203,13 +194,14 @@ public class BookPageFragment extends LazyFragment {
 								}
 							} else {
 								//new DownloadTask().execute();
-								//PicassoCache.getPicassoInstance(getApplicationContext()).load(Uri.parse(NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(pageNum)))).into(mImageView);
+								PicassoCache.getPicassoInstance(getApplicationContext()).load(Uri.parse(NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(pageNum)))).into(mImageView,onimageload);
 								return;
 							}
 						} else {
 							//new DownloadTask().execute();
-							//PicassoCache.getPicassoInstance(getApplicationContext()).load(Uri.parse(NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(pageNum)))).into(mImageView);
-						}
+							PicassoCache.getPicassoInstance(getApplicationContext()).load(Uri.parse(NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(pageNum)))).into(mImageView,onimageload);
+						}*/
+						PicassoCache.getPicassoInstance(getApplicationContext()).load(Uri.parse(NHentaiUrl.getOriginPictureUrl(book.galleryId, String.valueOf(pageNum)))).into(mImageView, onimageload);
 					}
 					break;
 				case MSG_ERROR_LOADING:

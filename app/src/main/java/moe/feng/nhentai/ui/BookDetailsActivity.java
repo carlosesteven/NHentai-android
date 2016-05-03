@@ -38,11 +38,6 @@ import com.nvanbenschoten.motion.ParallaxImageView;
 import com.squareup.picasso.Picasso;
 
 import java.io.File;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import moe.feng.nhentai.Async.DownloadInterface.DownloadInterface;
 import moe.feng.nhentai.Async.DownloadTask;
@@ -61,6 +56,7 @@ import moe.feng.nhentai.ui.common.AbsActivity;
 import moe.feng.nhentai.ui.common.AbsRecyclerViewAdapter;
 import moe.feng.nhentai.util.AsyncTask;
 import moe.feng.nhentai.util.ColorGenerator;
+import moe.feng.nhentai.util.ExecutorManager;
 import moe.feng.nhentai.util.Settings;
 import moe.feng.nhentai.util.TextDrawable;
 import moe.feng.nhentai.util.Utility;
@@ -647,7 +643,7 @@ public class BookDetailsActivity extends AbsActivity implements
 			} else {
 				isDownloaded = false;
 				int state = getSharedPreferences("data", MODE_PRIVATE).getInt(notID + "state", DownloadTask.State.NONE.getValue());
-				if (state == DownloadTask.State.DOWNLOADING.getValue()) {
+				if (state == DownloadTask.State.DOWNLOADING.getValue() || state == DownloadTask.State.PAUSE.getValue()) {
 					runOnUiThread(new Runnable() {
 						@Override
 						public void run() {
@@ -772,16 +768,11 @@ public class BookDetailsActivity extends AbsActivity implements
 
 	private void startDownload(int progress, final String title) {
 		progress = Math.max(0, progress);
-		notID = Math.abs(title.hashCode());
+		notID = Integer.parseInt(book.galleryId);
 		showDownloadingDialog();
 		int state = getSharedPreferences("data", MODE_PRIVATE).getInt(notID + "state", DownloadTask.State.NONE.getValue());
 		if (state != DownloadTask.State.DOWNLOADING.getValue()) {
-			int corePoolSize = 60;
-			int maximumPoolSize = 80;
-			int keepAliveTime = 10;
-			BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(maximumPoolSize);
-			Executor threadPoolExecutor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, workQueue);
-			new DownloadTask(progress, book, this).executeOnExecutor(threadPoolExecutor);
+			new DownloadTask(progress, book, this).executeOnExecutor(ExecutorManager.getExecutor());
 		}
 	}
 
@@ -806,6 +797,7 @@ public class BookDetailsActivity extends AbsActivity implements
 					@Override
 					public void onClick(@NonNull MaterialDialog dialog, @NonNull DialogAction which) {
 						getSharedPreferences("data", MODE_PRIVATE).edit().putInt(notID + "state", DownloadTask.State.CANCELED.getValue()).apply();
+						new DeleteTask().execute();
 					}
 				})
 				.build();
@@ -997,6 +989,9 @@ public class BookDetailsActivity extends AbsActivity implements
 	private class DeleteTask extends AsyncTask<Void, Integer, Void> {
 
 		private ProgressDialog dialog;
+
+		public DeleteTask() {
+		}
 
 		@Override
 		protected void onPreExecute() {
