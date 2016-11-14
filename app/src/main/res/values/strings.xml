@@ -132,6 +132,12 @@
 	<string name="set_title_nomedia">Do not show saved books in gallery</string>
 	<string name="set_title_nomedia_summary">Protect your secret gardens by creating \".nomedia\" in directory</string>
 
+    <!-- AutoUpdate -->
+    <string name="new_version_available">New version detected: </string>
+    <string name="button_update">Update</string>
+    <string name="updated_apk_download_error">Error downloading update</string>
+    <string name="updating">Downloading Update</string>
+
 	<!-- Donate -->
 	<string name="dialog_donate_title">Donate us</string>
 	<string name="dialog_donate_message">A nice application needs time, energy and your support.

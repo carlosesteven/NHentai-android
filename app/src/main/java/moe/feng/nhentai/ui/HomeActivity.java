@@ -69,6 +69,7 @@ import moe.feng.nhentai.util.AsyncTask;
 import moe.feng.nhentai.util.CrashHandler;
 import moe.feng.nhentai.util.FilesUtil;
 import moe.feng.nhentai.util.Settings;
+import moe.feng.nhentai.util.Updates;
 import moe.feng.nhentai.util.Utility;
 
 public class HomeActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
@@ -147,7 +148,7 @@ public class HomeActivity extends AppCompatActivity implements NavigationView.On
 			);
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
 				getWindow().setStatusBarColor(Color.TRANSPARENT);
-				getWindow().setNavigationBarColor(getResources().getColor(R.color.deep_purple_800));
+				getWindow().setNavigationBarColor(ContextCompat.getColor(this,R.color.deep_purple_800));
 			}
 		}
 
@@ -179,6 +180,7 @@ public class HomeActivity extends AppCompatActivity implements NavigationView.On
 				FilesUtil.createNewFile(FilesUtil.NOMEDIA_FILE);
 			}
 			onLoadMain();
+            Updates.check(this);
 		} else {
 			new AlertDialog.Builder(this)
 					.setTitle(R.string.dialog_permission_title)
@@ -880,13 +882,13 @@ public class HomeActivity extends AppCompatActivity implements NavigationView.On
 		@Override
 		public void onDrawerClosed(View drawerView) {
 			super.onDrawerClosed(drawerView);
-			invalidateOptionsMenu();
+			supportInvalidateOptionsMenu();
 		}
 
 		@Override
 		public void onDrawerOpened(View drawerView) {
 			super.onDrawerOpened(drawerView);
-			invalidateOptionsMenu();
+			supportInvalidateOptionsMenu();
 		}
 
 	}
